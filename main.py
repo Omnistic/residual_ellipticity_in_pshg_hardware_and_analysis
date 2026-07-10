@@ -1,6 +1,7 @@
 import CONFIG
 CONFIG.load_config()
 
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -100,7 +101,7 @@ def perform_single_measurement(path=None):
     analyzer.snap()
 
     if analyzer.analog_data_valid or measurement_method_toggle.value == 'Powermeter':
-        degree_of_polarization, _, degree_of_polarization_fit, _ = compute_polarization_parameters(
+        degree_of_polarization, angle, degree_of_polarization_fit, _ = compute_polarization_parameters(
             np.deg2rad(analyzer.measurement_data[0]),
             analyzer.measurement_data[1],
             max_intensity=CONFIG.detector_max_intensity
@@ -130,7 +131,7 @@ def perform_single_measurement(path=None):
     processed_signal_figure.add_trace(go.Scatter(
         x=analyzer.measurement_data[0],
         y=analyzer.measurement_data[1],
-        name='Degree of polarization = {:.6f}'.format(degree_of_polarization),
+        name='Degree of polarization = {:.6f} | Angle = {:.1f}'.format(degree_of_polarization, np.rad2deg(angle)),
         mode='lines+markers',
         marker={
             'size': 3,
@@ -210,17 +211,13 @@ def perform_hqwp_mapping(folder):
         experiment_progress.value = (ii+1)/CONFIG.hwp_mapping_steps    
 
 def perform_compensation_test(folder):
-    # Very ugly, TODO: clean this up!
     global compensator
 
-    import pickle
-    filepath = r'...\\calib.pkl'
-    file = open(filepath, 'rb')
-    motor_angles = pickle.load(file)
-    file.close()
+    filepath = r"...\YYYYMMDDTHHMMSSZ_HQWP_mapping_compensation.npz"
+    data = np.load(filepath)
 
-    HWP_angles = motor_angles[0,:]
-    QWP_angles = motor_angles[1,:]
+    HWP_angles = data['hwp']
+    QWP_angles = data['qwp_1']
 
     for ii in range(len(HWP_angles)):
         compensator.hwp_rotation_stage.set_position(HWP_angles[ii], absolute=True)
@@ -228,6 +225,16 @@ def perform_compensation_test(folder):
         path = f"{folder}/HWP-{ii:03d}"
         perform_single_measurement(path)
         experiment_progress.value = (ii+1)/len(HWP_angles)  
+
+def perform_time_lapse(folder):
+    duration_minutes = 120
+
+    for ii in range(duration_minutes):
+        current_datetime = datetime.now().strftime("%Y%m%dT%H%M%SZ")    
+        path = f"{folder}/{current_datetime}"
+        perform_single_measurement(path)
+        time.sleep(60)
+        experiment_progress.value = (ii+1)/duration_minutes  
 
 async def single_measurement():
     with disable_all_while_busy(elements_list):
@@ -293,6 +300,16 @@ async def test_compensation():
         Path(folder).mkdir(parents=True, exist_ok=True)
 
         await run.io_bound(perform_compensation_test, folder)
+
+        experiment_progress.visible = False
+
+async def time_lapse():
+    with disable_all_while_busy(elements_list):
+        experiment_progress.visible = True
+
+        folder = folder_path_input.value
+
+        await run.io_bound(perform_time_lapse, folder)
 
         experiment_progress.visible = False
 
@@ -393,10 +410,12 @@ with ui.row():
     hwp_mapping_button = ui.button('Polarization mapping with HWP', on_click=hwp_mapping)
     hqwp_mapping_button = ui.button('Polarization mapping with HWP and QWP', on_click=hqwp_mapping)
     test_compensation_button = ui.button('Test compensation', on_click=test_compensation)
+    time_lapse_button = ui.button('Time lapse', on_click=time_lapse)
     single_measurement_button.disable()
     hwp_mapping_button.disable()
     hqwp_mapping_button.disable()
     test_compensation_button.disable()
+    time_lapse_button.disable()
 
 calibration_progress = ui.circular_progress(show_value=False, size='100px').props('instant-feedback').classes('absolute-center')
 calibration_timer = ui.timer(0.1, lambda: calibration_progress.set_value(calibration_progress.value + 0.1 / CONFIG.nidaqmx_calibration_duration_in_seconds), active=False)
@@ -417,6 +436,7 @@ elements_list = [
     hwp_mapping_button,
     hqwp_mapping_button,
     test_compensation_button,
+    time_lapse_button,
     single_measurement_button,
     calibration_measurement_button,
     calibration_clear_button,

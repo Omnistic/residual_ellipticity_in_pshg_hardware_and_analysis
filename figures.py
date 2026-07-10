@@ -8,7 +8,11 @@ import os
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
+from datetime import datetime, timezone
+
 ROOT_FOLDER = r'..\raw_data_root'
+REVISION_SUBFOLDER = 'revision_data'
+
 HWP_ONLY_SUBFOLDERS = [
     r'hwp_only_before\20251001T100150Z_HWP_mapping',
     r'hwp_only_after\20251001T170811Z_HWP_mapping'
@@ -22,12 +26,25 @@ HQWP_SUBFOLDERS = [
 #     r'hwp_qwp_before_replicate\20250917T101445Z_HQWP_mapping',
 #     r'hwp_qwp_after_replicate\20250917T110448Z_HQWP_mapping'
 # ]
+# === Uncomment to use revision data (1 map before, 3 maps after consecutively) === #
+# HQWP_SUBFOLDERS = [
+#     r'revision_data\hwp_qwp_before\20260703T130327Z_HQWP_mapping',
+#     r'revision_data\hwp_qwp_after\20260703T135047Z_HQWP_mapping'
+# ]
+# HQWP_SUBFOLDERS = [
+#     r'revision_data\hwp_qwp_before\20260703T130327Z_HQWP_mapping',
+#     r'revision_data\hwp_qwp_after\20260703T143317Z_HQWP_mapping'
+# ]
+# HQWP_SUBFOLDERS = [
+#     r'revision_data\hwp_qwp_before\20260703T130327Z_HQWP_mapping',
+#     r'revision_data\hwp_qwp_after\20260703T150330Z_HQWP_mapping'
+# ]
+# === End of replicate/revision data === #
 BEFORE_AFTER_SUBFOLDERS = [
     r'hwp_only_after\20251001T170811Z_HWP_mapping',
     r'comp_after_1\20251001T143516Z_compensation_test',
     r'comp_after_2\20251001T142755Z_compensation_test'
 ]       
-
 PD_VS_PM_SUBFOLDERS = [
     'beam_only',
     'qwp_only_35_lin',
@@ -37,6 +54,8 @@ PD_VS_PM_SUBFOLDERS = [
     'qwp_only_65',
     'qwp_only_80_circ'
 ]
+TIME_LAPSE_SUBFOLDER = 'time_lapse'
+
 QWP_STATES = [
     'No QWP',
     'QWP @ 0°',
@@ -502,8 +521,81 @@ def before_after():
     fig.show()
     # fig.write_image(r'before_after.pdf', width=500, height=400)
 
+def time_lapse():
+    time_lapse_folder = os.path.join(ROOT_FOLDER, REVISION_SUBFOLDER, TIME_LAPSE_SUBFOLDER)
+    files = os.listdir(time_lapse_folder)
+    dt_0 = datetime.strptime(files[0].split('.')[0], "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+    epoch = datetime(1970, 1, 1, tzinfo=dt_0.tzinfo)
+    time_lapse_ellipticity = []
+    time_points = []
+    for file in files:
+        dt = datetime.strptime(file.split('.')[0], "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+        time_points.append(epoch + (dt - dt_0))
+        fullpath = os.path.join(time_lapse_folder, file)
+        data = np.load(fullpath)['measurement_data']
+        ee, _, _, _, _ = compute_polarization_parameters(np.deg2rad(data[0,:]), data[1,:], max_intensity=CONFIG.detector_max_intensity)
+        time_lapse_ellipticity.append(ee)
+    
+    print(f"Average Ellipticity: {np.mean(time_lapse_ellipticity):.4f}")
+    print(f"Ellipticity Std Dev: {np.std(time_lapse_ellipticity):.4f}")
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=time_points,
+        y=time_lapse_ellipticity,
+        mode='lines+markers',
+        name='Static HWP and QWP',
+        marker=dict(
+            size=5,
+            color=HWP_MEAS_COL[1]
+        ),
+        line=dict(
+            width=2,
+            color=HWP_MEAS_COL[1]
+        ),
+        showlegend=True
+    ))
+    fig.update_xaxes(
+        title_text='Elapsed Time (HH:MM:SS)',
+        title_font=dict(size=20),
+        showgrid=True,
+        automargin=False,
+        tickfont=dict(size=16),
+        tickformat="%H:%M:%S",
+        range=[time_points[0], time_points[-1]]
+    )
+    fig.update_yaxes(
+        title_text='Ellipticity (-)',
+        title_standoff=20,
+        title_font=dict(size=20),
+        showgrid=True,
+        automargin=False,
+        tickfont=dict(size=16),
+        tickmode='array',
+        tickvals=[0.4, 0.45, 0.5, 0.55, 0.6],
+        range=[0.4, 0.6]
+    )
+    fig.update_layout(
+        width=1000,
+        height=800,
+        margin=dict(l=70, r=50, t=50, b=70),
+        template='simple_white',
+        font_family='crm12',
+        legend=dict(
+            font=dict(size=16),
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='right',
+            x=1
+        )
+    )
+    fig.show()
+    # fig.write_image(r'time_lapse.pdf', width=1000, height=800)
+
 if __name__ == '__main__':
-    pd_vs_pm()
-    hwp_only()
+    # pd_vs_pm()
+    # hwp_only()
     hqwp()
-    before_after()
+    # before_after()
+    # time_lapse()
