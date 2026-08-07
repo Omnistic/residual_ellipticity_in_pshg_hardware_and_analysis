@@ -92,18 +92,33 @@ COMPENSATION_FILENAME = 'hqwp_compensation'
 
 BEFORE_AFTER_LABELS = [
     'HWP',
-    'HWP+QWP',
-    'HWP+QWP*'
+    'H+QWP (1)',
+    'H+QWP (2)'
 ]
 BEFORE_AFTER_SYMBOLS = [
     'circle',
     'cross',
     'x'
 ]
+BEFORE_AFTER_DASHES = [
+    None,
+    'dot',
+    'dash'
+]
 BEFORE_AFTER_COL = [
+    'rgba(0, 0, 0, 0.6)',
     CONFIG.c5+' 1)',
-    CONFIG.c4+' 0.7)',
-    CONFIG.c4+' 0.7)'
+    CONFIG.c4+' 1)'
+]
+BEFORE_AFTER_COL_T = [
+    'rgba(0, 0, 0, 0.5)',
+    CONFIG.c5+' 0.5)',
+    CONFIG.c4+' 0.5)'
+]
+BEFORE_AFTER_SIZES = [
+    3,
+    3,
+    3
 ]
 
 def pd_vs_pm():
@@ -267,7 +282,7 @@ def hwp_only():
         )
     )
     fig.show()
-    # fig.write_image(r'hwp_only.pdf', width=500, height=400)
+    fig.write_image(r'hwp_only.pdf', width=500, height=400)
 
 def create_map(folder):
     hwp_motor_angles = np.linspace(0, 90, HQWP_NUM_HWP)
@@ -378,6 +393,22 @@ def hqwp():
             ),
             showlegend=False
         ), row=ii+1, col=1)
+    fig.add_annotation(
+        x=18, 
+        y=71,
+        xref='x2',
+        yref='y2',
+        showarrow=False,
+        text='(1)',
+    )
+    fig.add_annotation(
+        x=105, 
+        y=20,
+        xref='x2',
+        yref='y2',
+        showarrow=False,
+        text='(2)',
+    )
     fig.update_xaxes(
         tickmode='array',
         tickvals=[0, 30, 60, 90, 120, 150, 180],
@@ -430,7 +461,7 @@ def hqwp():
         ]
     )
     fig.show()
-    # fig.write_image(r'hwp_qwp_map.pdf', width=500, height=400)
+    fig.write_image(r'hwp_qwp_map.pdf', width=500, height=400)
 
 def before_after():
     fig = go.Figure()
@@ -466,7 +497,7 @@ def before_after():
         fig.add_trace(go.Scatter(
             x=sorted_polarization_angle,
             y=sorted_ellipticity,
-            mode='lines+markers',
+            mode='lines',
             name=BEFORE_AFTER_LABELS[ii],
             marker=dict(
                 size=5,
@@ -474,7 +505,8 @@ def before_after():
                 color=BEFORE_AFTER_COL[ii]
             ),
             line=dict(
-                width=2,
+                dash=BEFORE_AFTER_DASHES[ii],
+                width=BEFORE_AFTER_SIZES[ii],
                 color=BEFORE_AFTER_COL[ii]
             )
         ))
@@ -482,7 +514,7 @@ def before_after():
             x=[polarization_angle[0], polarization_angle[0]],
             y=[0, 0.3],
             mode='lines',
-            line=dict(dash='dash', width=3, color=HWP_MEAS_COL_OPA[ii]),
+            line=dict(dash=BEFORE_AFTER_DASHES[ii], width=3, color=BEFORE_AFTER_COL_T[ii]),
             showlegend=False
         )
     fig.update_xaxes(
@@ -519,7 +551,7 @@ def before_after():
         )
     )
     fig.show()
-    # fig.write_image(r'before_after.pdf', width=500, height=400)
+    fig.write_image(r'before_after.pdf', width=500, height=400)
 
 def time_lapse():
     time_lapse_folder = os.path.join(ROOT_FOLDER, REVISION_SUBFOLDER, TIME_LAPSE_SUBFOLDER)
