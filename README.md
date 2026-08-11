@@ -1,3 +1,4 @@
+[![DOI](https://zenodo.org/badge/1150751292.svg)](https://doi.org/10.5281/zenodo.21887160)
 # Hardware Control
 ```main.py``` is the script that starts the user interface for hardware control. It uses [https://nicegui.io/](https://nicegui.io/), and the different device drivers can be found in the ```hardware``` folder.
 
